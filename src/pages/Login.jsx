@@ -1,46 +1,155 @@
 import React, { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import Logo from '../assets/Logo.svg'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
-  const { signin } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const from = location.state?.from?.pathname || '/dashboard'
-
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    // NOTE: Replace with real auth call
-    signin({ email }, remember)
-    navigate(from, { replace: true })
+    setError('')
+    setLoading(true)
+
+    try {
+      // API Integration Point - Replace with your actual API endpoint
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          rememberMe: remember,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Login failed')
+      }
+
+      const data = await response.json()
+      
+      // Store token/session
+      if (data.token) {
+        localStorage.setItem('authToken', data.token)
+      }
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(err.message || 'Invalid email or password')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-md bg-white p-6 rounded shadow">
-        <h2 className="text-2xl mb-4">Sign In</h2>
-
-        <label className="block mb-2">Email address</label>
-        <input value={email} onChange={e => setEmail(e.target.value)} type="email" required className="w-full mb-3 p-2 border rounded" />
-
-        <label className="block mb-2">Password</label>
-        <input value={password} onChange={e => setPassword(e.target.value)} type="password" required className="w-full mb-3 p-2 border rounded" />
-
-        <label className="flex items-center gap-2 mb-4">
-          <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
-          Remember me
-        </label>
-
-        <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded mb-3">Sign In</button>
-
-        <div className="text-center">
-          <Link to="/forgot" className="text-sm text-blue-600">Forgot password?</Link>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md">
+        {/* Logo and Title */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <img src={Logo} alt="AI Wingman Logo" className="w-42 h-42" />
+          {/* <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">AI Wingman</h1> */}
         </div>
-      </form>
+
+       <div className='bg-white p-12 rounded-2xl'>
+
+             {/* Heading */}
+        <h2 className="text-center text-xl sm:text-2xl font-semibold text-gray-900 mb-8">
+          Sign in Your Account
+        </h2>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                ✉️
+              </span>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email Address"
+                required
+                disabled={loading}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                🔒
+              </span>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                disabled={loading}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {/* Remember Me */}
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              disabled={loading}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer disabled:cursor-not-allowed"
+            />
+            <span className="text-sm text-gray-600">Remember me</span>
+          </label>
+
+          {/* Sign In Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed text-center"
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+
+        {/* Forgot Password */}
+        <div className="mt-6 text-center">
+          <a
+            href="/forgot"
+            className="text-sm text-gray-600 hover:text-purple-600 transition"
+          >
+            Forgot the password?
+          </a>
+
+       </div>
+        </div>
+      </div>
     </div>
   )
 }
