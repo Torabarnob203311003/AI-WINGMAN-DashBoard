@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import MailboxIcon from '../assets/mailbox.svg'
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState(['', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
+  const navigate = useNavigate()
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)]
 
   // Timer for resend OTP
@@ -55,32 +58,12 @@ export default function VerifyOTP() {
         throw new Error('Email not found. Please start over.')
       }
 
-      // API Integration Point - Replace with your actual API endpoint
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-          otp: otpCode,
-        }),
-      })
+      // Demo: Simulate OTP verification
+      sessionStorage.setItem('reset_token', 'demo_token')
 
-      if (!response.ok) {
-        throw new Error('Invalid OTP. Please try again.')
-      }
-
-      const data = await response.json()
-
-      // Store token for password reset
-      if (data.token) {
-        sessionStorage.setItem('reset_token', data.token)
-      }
-
-      // Redirect to reset password
+      // Navigate to reset password
       setTimeout(() => {
-        window.location.href = '/reset-password'
+        navigate('/reset-password')
       }, 500)
     } catch (err) {
       setError(err.message || 'Failed to verify OTP')
@@ -100,21 +83,7 @@ export default function VerifyOTP() {
         throw new Error('Email not found')
       }
 
-      // API Integration Point
-      const response = await fetch('/api/auth/resend-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to resend OTP')
-      }
-
+      // Demo: Simulate resend OTP
       setResendTimer(60)
       setOtp(['', '', '', ''])
       inputRefs[0].current?.focus()
@@ -130,9 +99,7 @@ export default function VerifyOTP() {
       <div className="w-full max-w-md">
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">✉️</span>
-          </div>
+          <img src={MailboxIcon} alt="Mailbox Icon" className="w-26 h-24" />
         </div>
 
         {/* Title */}
@@ -173,13 +140,14 @@ export default function VerifyOTP() {
           </div>
 
           {/* Verify Button */}
-          <button
-            onClick={handleVerify}
-            disabled={loading || otp.join('').length !== 4}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Verifying...' : 'Verify OTP'}
-          </button>
+        <button
+  onClick={handleVerify}
+  disabled={loading || otp.join('').length !== 4}
+  style={{ background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }}
+  className="w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {loading ? 'Verifying...' : 'Verify OTP'}
+</button>
         </div>
 
         {/* Resend OTP */}

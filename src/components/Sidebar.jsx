@@ -1,10 +1,19 @@
-import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import DashIcon from '../assets/icons/daash.svg'
+import UsersIcon from '../assets/icons/user.svg'
+import ToneIcon from '../assets/icons/Tone.svg'
+import AnalyticsIcon from '../assets/icons/Analytics.svg'
+import SettingsIcon from '../assets/icons/settings.svg'
+import { FiLogOut } from 'react-icons/fi'
+import Logo from '../assets/Logo.svg'
 
-export default function Sidebar({ collapsed }) {
-  const { signout } = useAuth()
+export default function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false)
+  const location = useLocation()
   const navigate = useNavigate()
+  const { signout } = useAuth()
 
   function handleLogout() {
     signout()
@@ -12,39 +21,66 @@ export default function Sidebar({ collapsed }) {
   }
 
   const items = [
-    { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { to: '/users', label: 'Users', icon: '👥' },
-    { to: '/tones-limits', label: 'Tones & Limits', icon: '🎚️' },
-    { to: '/analytics', label: 'Analytics', icon: '📊' },
-    { to: '/settings', label: 'Settings', icon: '⚙️' }
+    { id: 'dashboard', label: 'Dashboard', icon: DashIcon, to: '/dashboard' },
+    { id: 'users', label: 'Users', icon: UsersIcon, to: '/users' },
+    { id: 'tones', label: 'Tones & Limits', icon: ToneIcon, to: '/tones-limits' },
+    { id: 'analytics', label: 'Analytics', icon: AnalyticsIcon, to: '/analytics' },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon, to: '/settings' }
   ]
 
   return (
-    <aside className={`bg-gray-800 text-white flex flex-col ${collapsed ? 'w-16' : 'w-64'}`}>
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center">AI</div>
-          {!collapsed && <div className="text-lg font-bold">ai wingman</div>}
-        </div>
-
-        <nav className="space-y-1">
-          {items.map(item => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="flex items-center gap-3 p-2 rounded hover:bg-gray-700"
-            >
-              <span className="text-xl">{item.icon}</span>
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          ))}
-        </nav>
+    <aside className={`m-7 bg-gray-50 border-r rounded-lg border-gray-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'} min-h-screen`}>
+      {/* Header */}
+      <div className="p-6 flex justify-center">
+        <img 
+          src={Logo} 
+          alt="AI Wingman Logo" 
+          style={{ width: '440px', height: '80px', objectFit: 'contain' }}
+        />
       </div>
 
-      <div className="mt-auto p-4">
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 p-2 rounded hover:bg-red-600 bg-transparent">
-          <span className="text-xl">🔒</span>
-          {!collapsed && <span>Log Out</span>}
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-4">
+        {items.map((item) => {
+          const isActive = location.pathname === item.to
+          return (
+            <Link
+              key={item.id}
+              to={item.to}
+              className={`w-full flex items-center gap-3 px-3 py-4 rounded-lg transition-all duration-200 ${
+                isActive ? 'text-white' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'
+              }`}
+              style={
+                isActive
+                  ? { background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }
+                  : undefined
+              }
+            >
+              <img src={item.icon} alt={`${item.label} icon`} className="w-5 h-5 flex-shrink-0" />
+              {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Logout Button */}
+      <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 transition-all duration-200"
+          >
+            <FiLogOut className="w-5 h-5 text-red-500 flex-shrink-0" />
+            {!collapsed && <span className="text-sm font-medium">Log Out</span>}
+          </button>
+        </div>
+
+      {/* Toggle Button */}
+      <div className="p-2">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full p-2 rounded-lg hover:bg-gray-100 text-gray-600 text-center text-xs"
+        >
+          {collapsed ? '→' : '←'}
         </button>
       </div>
     </aside>

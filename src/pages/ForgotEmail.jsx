@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import KeyIcon from '../assets/key.svg'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const navigate = useNavigate()
 
   async function handleGetOtp(e) {
     e.preventDefault()
@@ -12,32 +15,18 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      // API Integration Point - Replace with your actual API endpoint
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to send OTP')
+      if (!email) {
+        throw new Error('Please enter your email')
       }
 
-      const data = await response.json()
-
-      // Store email for next step (OTP verification)
+      // Demo: Simulate OTP sent
       sessionStorage.setItem('reset_email', email)
-      
       setSuccess(true)
       setEmail('')
 
       // Redirect after 2 seconds
       setTimeout(() => {
-        window.location.href = '/verify-otp'
+        navigate('/verify-otp')
       }, 2000)
     } catch (err) {
       setError(err.message || 'Failed to send OTP. Please try again.')
@@ -47,13 +36,11 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow">
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">🔑</span>
-          </div>
+          <img src={KeyIcon} alt="Key Icon" className="w-22 h-22" />
         </div>
 
         {/* Title */}
@@ -107,13 +94,14 @@ export default function ForgotPassword() {
           </div>
 
           {/* Get OTP Button */}
-          <button
-            onClick={handleGetOtp}
-            disabled={loading || success}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Sending OTP...' : 'Get OTP'}
-          </button>
+        <button
+  onClick={handleGetOtp}
+  disabled={loading || success}
+  style={{ background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }}
+  className="w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {loading ? 'Sending OTP...' : 'Get OTP'}
+</button>
         </div>
 
         {/* Back to Login */}

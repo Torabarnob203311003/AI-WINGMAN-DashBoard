@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import Logo from '../assets/Logo.svg'
 
 export default function Login() {
@@ -7,6 +9,8 @@ export default function Login() {
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { signin } = useAuth()
+  const navigate = useNavigate()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -14,32 +18,16 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // API Integration Point - Replace with your actual API endpoint
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          rememberMe: remember,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Login failed')
+      // Demo: Simulate successful login
+      if (!email || !password) {
+        throw new Error('Please enter email and password')
       }
-
-      const data = await response.json()
       
-      // Store token/session
-      if (data.token) {
-        localStorage.setItem('authToken', data.token)
-      }
-
-      // Redirect to dashboard
-      window.location.href = '/dashboard'
+      // Sign in user via context
+      signin({ email }, remember)
+      
+      // Navigate to dashboard
+      navigate('/dashboard')
     } catch (err) {
       setError(err.message || 'Invalid email or password')
     } finally {
