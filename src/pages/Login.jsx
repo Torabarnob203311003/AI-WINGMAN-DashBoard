@@ -51,15 +51,15 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         {/* Logo and Title */}
-        <div className="flex items-center justify-center gap-3 mb-8">
+        <div className="flex ps-4  items-center justify-center gap-3 mb-8">
           <img src={Logo} alt="AI Wingman Logo" className="w-42 h-42" />
           {/* <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">AI Wingman</h1> */}
         </div>
 
-       <div className='bg-white p-12 rounded-2xl'>
+       <div className='bg-white p-12 rounded-2xl '>
 
              {/* Heading */}
-        <h2 className="text-center text-xl sm:text-2xl font-semibold text-gray-900 mb-8">
+        <h2 className="text-center text-xl sm:text-3xl font-bold text-gray-900 mb-8">
           Sign in Your Account
         </h2>
 
@@ -67,11 +67,11 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
               Email Address
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black">
                 ✉️
               </span>
               <input
@@ -89,7 +89,8 @@ export default function Login() {
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-bold
+             text-black mb-2">
               Password
             </label>
             <div className="relative">
@@ -125,24 +126,25 @@ export default function Login() {
               disabled={loading}
               className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer disabled:cursor-not-allowed"
             />
-            <span className="text-sm text-gray-600">Remember me</span>
+            <span className="text-sm font-bold text-black">Remember me</span>
           </label>
 
           {/* Sign In Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed text-center"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
+        <button
+  type="submit"
+  disabled={loading}
+  style={{ background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }}
+  className="w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-center"
+>
+  {loading ? 'Signing in...' : 'Sign in'}
+</button>
         </form>
 
         {/* Forgot Password */}
         <div className="mt-6 text-center">
           <a
             href="/forgot"
-            className="text-sm text-gray-600 hover:text-purple-600 transition"
+            className="text-l font-semibold text-black hover:text-purple-600 transition"
           >
             Forgot the password?
           </a>
