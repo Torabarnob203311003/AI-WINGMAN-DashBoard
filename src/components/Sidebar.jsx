@@ -29,7 +29,7 @@ export default function Sidebar() {
   ]
 
   return (
-    <aside className={`m-7 bg-gray-50 border-r rounded-lg border-gray-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'} min-h-screen`}>
+    <aside className={`ms-7 mt-7 mb-7 bg-gray-50 border-r rounded-lg border-gray-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-80'} min-h-60`}>
       {/* Header */}
       <div className="p-6 flex justify-center">
         <img 
@@ -64,7 +64,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 ">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 transition-all duration-200"
@@ -75,14 +75,14 @@ export default function Sidebar() {
         </div>
 
       {/* Toggle Button */}
-      <div className="p-2">
+      {/* <div className="p-2">
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full p-2 rounded-lg hover:bg-gray-100 text-gray-600 text-center text-xs"
         >
           {collapsed ? '→' : '←'}
         </button>
-      </div>
+      </div> */}
     </aside>
   )
 }
