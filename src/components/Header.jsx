@@ -10,7 +10,7 @@ export default function Header() {
   }
 
   return (
-    <header className="m-7 px-6 py-4 bg-white border-b border-gray-200 flex items-center rounded-xl justify-between">
+    <header className="px-6 py-4 bg-white border-b border-gray-200 flex items-center rounded-none justify-between flex-shrink-0">
       {/* Search Bar */}
       <div className="flex-1 max-w-xs">
         <div className="relative ">
