@@ -29,7 +29,7 @@ export default function Sidebar() {
   ]
 
   return (
-    <aside className={`ms-7 mt-7 mb-7 bg-gray-50 border-r rounded-lg border-gray-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-80'} min-h-60`}>
+    <aside className={`ms-7 mt-7  bg-white border-r rounded-lg flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-80'} h-screen overflow-hidden`}>
       {/* Header */}
       <div className="p-6 flex justify-center">
         <img 
@@ -64,7 +64,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 ">
+      <div className="p-4 mb-7 ">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 transition-all duration-200"
