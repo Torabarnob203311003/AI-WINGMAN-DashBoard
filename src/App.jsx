@@ -10,7 +10,7 @@ import MainLayout from './layouts/MainLayout'
 import DashboardHome from './pages/DashboardHome'
 import Users from './pages/Users'
 import TonesLimits from './pages/TonesLimits'
-import Analytics from './pages/Analytics'
+import Persona from './pages/Persona'
 import Settings from './pages/Settings'
 
 function App() {
@@ -29,7 +29,7 @@ function App() {
               <Route path="/dashboard" element={<DashboardHome />} />
               <Route path="/users" element={<Users />} />
               <Route path="/tones-limits" element={<TonesLimits />} />
-              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/persona" element={<Persona />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

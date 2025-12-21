@@ -10,7 +10,7 @@ import { FiLogOut } from 'react-icons/fi'
 import Logo from '../assets/Logo.svg'
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, _setCollapsed] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { signout } = useAuth()
@@ -24,7 +24,7 @@ export default function Sidebar() {
     { id: 'dashboard', label: 'Dashboard', icon: DashIcon, to: '/dashboard' },
     { id: 'users', label: 'Users', icon: UsersIcon, to: '/users' },
     { id: 'tones', label: 'Tones & Limits', icon: ToneIcon, to: '/tones-limits' },
-    { id: 'analytics', label: 'Analytics', icon: AnalyticsIcon, to: '/analytics' },
+    { id: 'wingman-persona', label: 'Wingman persona', icon: AnalyticsIcon, to: '/persona' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, to: '/settings' }
   ]
 
@@ -42,7 +42,7 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-4">
         {items.map((item) => {
-          const isActive = location.pathname === item.to
+          const isActive = location.pathname.toLowerCase() === item.to.toLowerCase()
           return (
             <Link
               key={item.id}
