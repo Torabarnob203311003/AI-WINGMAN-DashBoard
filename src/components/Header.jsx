@@ -1,12 +1,21 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BsSearch } from 'react-icons/bs'
+import { useAuth } from '../context/AuthContext'
 
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState('')
+  const { user, signout } = useAuth()
+  const navigate = useNavigate()
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
     // Add search logic here
+  }
+
+  const handleLogout = () => {
+    signout()
+    navigate('/login')
   }
 
   return (
@@ -33,7 +42,15 @@ export default function Header() {
         </div>
         
         {/* User Name */}
-        <span className="text-xl  font-medium text-gray-900">Alan Roy</span>
+        <span className="text-xl font-medium text-gray-900">{user?.email || 'User'}</span>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium"
+        >
+          Logout
+        </button>
       </div>
     </header>
   )

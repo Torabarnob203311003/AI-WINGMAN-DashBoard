@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import apiClient from '../utils/apiClient'
 import KeyIcon from '../assets/key.svg'
 
 export default function ForgotPassword() {
@@ -19,7 +20,15 @@ export default function ForgotPassword() {
         throw new Error('Please enter your email')
       }
 
-      // Demo: Simulate OTP sent
+      // Call the send OTP API
+      const response = await apiClient.post('/auth/send-otp/', { email })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to send OTP')
+      }
+
+      // Store email for verification
       sessionStorage.setItem('reset_email', email)
       setSuccess(true)
       setEmail('')

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import apiClient from '../utils/apiClient';
+import { useAuth } from '../context/AuthContext';
 
 const Settings = () => {
   const [name, setName] = useState('Admin name');
@@ -6,47 +8,86 @@ const Settings = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const { user } = useAuth();
 
-  const handleUpdateProfile = () => {
+  const handleUpdateProfile = async () => {
     if (name.trim() === '' || email.trim() === '') {
-      alert('Please fill in all fields');
+      setMessage('Please fill in all fields');
+      setMessageType('error');
       return;
     }
-    console.log({
-      name,
-      email,
-    });
-    alert('Profile updated successfully!');
+
+    setLoading(true);
+    try {
+      const response = await apiClient.put('/auth/profile/', {
+        name: name,
+        email: email,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
+
+      setMessage('Profile updated successfully!');
+      setMessageType('success');
+    } catch (err) {
+      setMessage(err.message || 'Failed to update profile');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (
       currentPassword.trim() === '' ||
       newPassword.trim() === '' ||
       confirmPassword.trim() === ''
     ) {
-      alert('Please fill in all password fields');
+      setMessage('Please fill in all password fields');
+      setMessageType('error');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert('New password and confirm password do not match');
+      setMessage('New password and confirm password do not match');
+      setMessageType('error');
       return;
     }
 
     if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters');
+      setMessage('Password must be at least 6 characters');
+      setMessageType('error');
       return;
     }
 
-    console.log({
-      currentPassword,
-      newPassword,
-    });
-    alert('Password changed successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/auth/change-password/', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to change password');
+      }
+
+      setMessage('Password changed successfully!');
+      setMessageType('success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setMessage(err.message || 'Failed to change password');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,6 +102,23 @@ const Settings = () => {
         gap: '48px',
       }}
     >
+      {/* Message Alert */}
+      {message && (
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '8px',
+            backgroundColor: messageType === 'success' ? '#dcfce7' : '#fee2e2',
+            border: `1px solid ${messageType === 'success' ? '#86efac' : '#fca5a5'}`,
+            color: messageType === 'success' ? '#166534' : '#991b1b',
+            fontSize: '14px',
+            fontWeight: '500',
+          }}
+        >
+          {message}
+        </div>
+      )}
+
       {/* Admin User Section */}
       <div style={{  backgroundColor: 'white', padding: '24px', borderRadius: '8px' }}>
         <h1
@@ -142,6 +200,7 @@ const Settings = () => {
         {/* Update Profile Button */}
         <button
           onClick={handleUpdateProfile}
+          disabled={loading}
           style={{
             background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
             color: 'white',
@@ -150,14 +209,15 @@ const Settings = () => {
             borderRadius: '8px',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'opacity 0.2s',
+            opacity: loading ? 0.6 : 1,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseEnter={(e) => !loading && (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => !loading && (e.currentTarget.style.opacity = '1')}
           type="button"
         >
-          Update profile
+          {loading ? 'Updating...' : 'Update profile'}
         </button>
       </div>
 
@@ -275,6 +335,7 @@ const Settings = () => {
         {/* Change Password Button */}
         <button
           onClick={handleChangePassword}
+          disabled={loading}
           style={{
             background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
             color: 'white',
@@ -283,14 +344,15 @@ const Settings = () => {
             borderRadius: '8px',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'opacity 0.2s',
+            opacity: loading ? 0.6 : 1,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseEnter={(e) => !loading && (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => !loading && (e.currentTarget.style.opacity = '1')}
           type="button"
         >
-          Change Password
+          {loading ? 'Changing...' : 'Change Password'}
         </button>
       </div>
     </div>
