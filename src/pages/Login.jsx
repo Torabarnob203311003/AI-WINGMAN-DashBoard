@@ -53,6 +53,15 @@ export default function Login() {
         token: data.data.token,
         refresh_token: data.data.refresh_token
       })
+
+      // Verify token was stored
+      const storedTokens = localStorage.getItem('auth_tokens');
+      console.log('✅ Login successful - Tokens stored:', storedTokens ? 'YES' : 'NO');
+      if (storedTokens) {
+        const parsed = JSON.parse(storedTokens);
+        console.log('✅ Access Token exists:', !!parsed.access_token);
+        console.log('✅ Refresh Token exists:', !!parsed.refresh_token);
+      }
       
       // Navigate to dashboard after 2 seconds
       setTimeout(() => {
