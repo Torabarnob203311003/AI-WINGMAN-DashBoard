@@ -1,633 +1,880 @@
-import React, { useState } from 'react';
-import { Eye, Trash2, ChevronDown } from 'lucide-react';
+/* eslint-disable no-unused-vars */
+import React, { useState, useEffect } from 'react';
+import { Eye, Trash2, ChevronDown, Search, ChevronLeft, ChevronRight, X, Power, UserCheck, UserX, Key, CheckCircle, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Users = () => {
-  const [subscriptionFilter, setSubscriptionFilter] = useState('Premium');
-  const [statusFilter, setStatusFilter] = useState('Active');
-  const [sortBy, setSortBy] = useState('Most Active');
+  const { tokens } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Filter states
+  const [subscriptionFilter, setSubscriptionFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('most_active');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(10);
+
+  // Modal states
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [userDetails, setUserDetails] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [togglingUserId, setTogglingUserId] = useState(null);
+  const [resettingUserId, setResettingUserId] = useState(null);
 
-  const users = [
-    {
-      id: 1,
-      name: 'MD. Rahim',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 34,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 2,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 50,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 3,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 50,
-      status: 'Inactive',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 4,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Free',
-      usage: 50,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 5,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 50,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 6,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 50,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-    {
-      id: 7,
-      name: 'Roni Roy',
-      email: 'mostafo@gmail.com',
-      subscription: 'Premium',
-      usage: 50,
-      status: 'Active',
-      joinDate: '12/10/2025',
-    },
-  ];
+  // Message modal states
+  const [messageModal, setMessageModal] = useState({
+    show: false,
+    type: 'success', // 'success' or 'error'
+    title: '',
+    message: '',
+    userEmail: ''
+  });
 
-  const handleViewUser = (user) => {
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('page_size', pageSize);
+
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/users/?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success && responseData.data) {
+        const formattedUsers = responseData.data.results.map(user => ({
+          id: user.id,
+          name: user.name || user.email.split('@')[0],
+          email: user.email,
+          subscription: user.subscription || (user.is_premium ? 'Premium' : 'Free'),
+          usage: user.usage_count || 0,
+          status: user.status || (user.is_active ? 'Active' : 'Inactive'),
+          isActive: user.is_active,
+          joinDate: new Date(user.date_joined).toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          profileImage: user.profile_image_url,
+          isStaff: user.is_staff,
+          lastLogin: user.last_login,
+        }));
+
+        setUsers(formattedUsers);
+        setTotalCount(responseData.data.count);
+        setTotalPages(Math.ceil(responseData.data.count / pageSize));
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manual filtering and sorting
+  useEffect(() => {
+    let result = [...users];
+
+    // Apply subscription filter
+    if (subscriptionFilter !== 'all') {
+      result = result.filter(user =>
+        user.subscription.toLowerCase() === subscriptionFilter.toLowerCase()
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(user =>
+        user.status.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'most_active':
+        result.sort((a, b) => b.usage - a.usage);
+        break;
+      case 'least_active':
+        result.sort((a, b) => a.usage - b.usage);
+        break;
+      case 'newest':
+        result.sort((a, b) => new Date(b.joinDate) - new Date(a.joinDate));
+        break;
+      case 'oldest':
+        result.sort((a, b) => new Date(a.joinDate) - new Date(b.joinDate));
+        break;
+      case 'name_asc':
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name_desc':
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      default:
+        break;
+    }
+
+    setFilteredUsers(result);
+    setTotalPages(Math.ceil(result.length / pageSize));
+    setTotalCount(result.length);
+  }, [users, subscriptionFilter, statusFilter, sortBy]);
+
+  useEffect(() => {
+    if (tokens?.access_token) {
+      fetchUsers();
+    }
+  }, [tokens, currentPage, searchTerm]);
+
+  // Fetch single user details
+  const fetchUserDetails = async (userId) => {
+    try {
+      setLoadingDetails(true);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/users/${userId}/`,
+        {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success && responseData.data) {
+        const user = responseData.data;
+        const formattedUser = {
+          id: user.id,
+          name: user.name || user.email.split('@')[0],
+          email: user.email,
+          subscription: user.subscription || (user.is_premium ? 'Premium' : 'Free'),
+          usage: user.usage_count || 0,
+          status: user.status || (user.is_active ? 'Active' : 'Inactive'),
+          isActive: user.is_active,
+          joinDate: new Date(user.date_joined).toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+          }),
+          profileImage: user.profile_image_url,
+          isStaff: user.is_staff,
+          lastLogin: user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
+          dateJoined: new Date(user.date_joined).toLocaleString(),
+          isPremium: user.is_premium,
+        };
+
+        setUserDetails(formattedUser);
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (err) {
+      console.error('Error fetching user details:', err);
+      showMessageModal('error', 'Error', 'Failed to load user details');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // Show message modal
+  const showMessageModal = (type, title, message, userEmail = '') => {
+    setMessageModal({
+      show: true,
+      type,
+      title,
+      message,
+      userEmail
+    });
+  };
+
+  // Close message modal
+  const closeMessageModal = () => {
+    setMessageModal({
+      show: false,
+      type: 'success',
+      title: '',
+      message: '',
+      userEmail: ''
+    });
+  };
+
+  // Toggle user status with immediate UI update
+  const handleToggleStatus = async (userId) => {
+    try {
+      setActionLoading(true);
+      setTogglingUserId(userId);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/users/${userId}/toggle_status/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle user status');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        // Immediate UI update for users list
+        setUsers(prevUsers =>
+          prevUsers.map(user =>
+            user.id === userId
+              ? {
+                ...user,
+                isActive: !user.isActive,
+                status: !user.isActive ? 'Active' : 'Inactive'
+              }
+              : user
+          )
+        );
+
+        // Immediate UI update for user details if modal is open
+        if (userDetails && userDetails.id === userId) {
+          setUserDetails(prev => ({
+            ...prev,
+            isActive: !prev.isActive,
+            status: !prev.isActive ? 'Active' : 'Inactive'
+          }));
+        }
+
+        // Show success message
+        showMessageModal(
+          'success',
+          'Status Updated',
+          responseData.message || 'User status updated successfully',
+          userDetails?.email || ''
+        );
+      }
+    } catch (err) {
+      console.error('Error toggling user status:', err);
+      showMessageModal('error', 'Error', 'Failed to update user status');
+    } finally {
+      setActionLoading(false);
+      setTogglingUserId(null);
+    }
+  };
+
+  // Reset user password
+  const handleResetPassword = async (userId, userEmail) => {
+    try {
+      setActionLoading(true);
+      setResettingUserId(userId);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/users/${userId}/reset_user_password/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to reset password');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        // Show success message with the email from response
+        showMessageModal(
+          'success',
+          'Password Reset',
+          responseData.message || 'Password reset email sent successfully',
+          userEmail
+        );
+      } else {
+        throw new Error(responseData.message || 'Failed to reset password');
+      }
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      showMessageModal('error', 'Error', err.message || 'Failed to reset password');
+    } finally {
+      setActionLoading(false);
+      setResettingUserId(null);
+    }
+  };
+
+  const handleViewUser = async (user) => {
     setSelectedUser(user);
     setShowModal(true);
+    setLoadingDetails(true);
+    await fetchUserDetails(user.id);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setSelectedUser(null);
+    setUserDetails(null);
   };
 
-  const getStatusBgColor = (status) => {
-    if (status === 'Active') return '#d1fae5';
-    if (status === 'Inactive') return '#fee2e2';
-    return '#f3f4f6';
+  // Get current page users
+  const getCurrentPageUsers = () => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredUsers.slice(startIndex, endIndex);
   };
 
-  const getStatusTextColor = (status) => {
-    if (status === 'Active') return '#047857';
-    if (status === 'Inactive') return '#dc2626';
-    return '#374151';
-  };
+  // Filter options
+  const subscriptionOptions = [
+    { value: 'all', label: 'All Subscriptions' },
+    { value: 'premium', label: 'Premium' },
+    { value: 'free', label: 'Free' },
+  ];
 
-  const getSubscriptionBgColor = (subscription) => {
-    if (subscription === 'Premium') return '#fef3c7';
-    if (subscription === 'Free') return '#f3e8ff';
-    return '#e0e7ff';
-  };
+  const statusOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ];
 
-  const getSubscriptionTextColor = (subscription) => {
-    if (subscription === 'Premium') return '#92400e';
-    if (subscription === 'Free') return '#6b21a8';
-    return '#3730a3';
-  };
+  const sortOptions = [
+    { value: 'most_active', label: 'Most Active' },
+    { value: 'least_active', label: 'Least Active' },
+    { value: 'newest', label: 'Newest First' },
+    { value: 'oldest', label: 'Oldest First' },
+    { value: 'name_asc', label: 'Name (A to Z)' },
+    { value: 'name_desc', label: 'Name (Z to A)' },
+  ];
+
+  if (loading && users.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-3 border-purple-200 border-t-purple-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        background: '#f9fafb',
-        minHeight: '100vh',
-        padding: '24px',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}
-    >
+    <div className="min-h-screen bg-gray-50 p-6 font-sans">
       {/* Header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ color: '#1f2937', fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-          Users
-        </h1>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Users</h1>
+        {totalCount > 0 && (
+          <p className="text-sm text-gray-600">Total Users: {totalCount}</p>
+        )}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-100 text-red-600 px-4 py-3 rounded-xl mb-5 border border-red-500 flex justify-between items-center text-sm">
+          <span>Error: {error}</span>
+          <button
+            onClick={fetchUsers}
+            className="bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 text-sm font-medium"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Search Bar */}
+      <div className="mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search users by name or email..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+        </div>
       </div>
 
       {/* Filters */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          marginBottom: '32px',
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-        }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-white p-6 rounded-xl shadow-sm">
         {/* Subscription Filter */}
         <div>
-          <label
-            style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-            }}
-          >
+          <label className="block mb-2 text-sm font-medium text-gray-700">
             Subscription
           </label>
-          <button
-            onClick={() =>
-              setSubscriptionFilter(
-                subscriptionFilter === 'Premium' ? 'Free' : 'Premium'
-              )
-            }
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              background: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: '14px',
-              color: '#374151',
-              fontWeight: '500',
-            }}
-          >
-            {subscriptionFilter}
-            <ChevronDown size={16} />
-          </button>
+          <div className="relative">
+            <select
+              value={subscriptionFilter}
+              onChange={(e) => {
+                setSubscriptionFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              {subscriptionOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
 
         {/* Status Filter */}
         <div>
-          <label
-            style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-            }}
-          >
+          <label className="block mb-2 text-sm font-medium text-gray-700">
             Status
           </label>
-          <button
-            onClick={() =>
-              setStatusFilter(statusFilter === 'Active' ? 'Inactive' : 'Active')
-            }
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              background: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: '14px',
-              color: '#374151',
-              fontWeight: '500',
-            }}
-          >
-            {statusFilter}
-            <ChevronDown size={16} />
-          </button>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
 
         {/* Sort By */}
         <div>
-          <label
-            style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-            }}
-          >
+          <label className="block mb-2 text-sm font-medium text-gray-700">
             Sort By
           </label>
-          <button
-            onClick={() =>
-              setSortBy(
-                sortBy === 'Most Active' ? 'Least Active' : 'Most Active'
-              )
-            }
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              background: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: '14px',
-              color: '#374151',
-              fontWeight: '500',
-            }}
-          >
-            {sortBy}
-            <ChevronDown size={16} />
-          </button>
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
       </div>
 
       {/* Users Table */}
-      <div
-        style={{
-          background: 'white',
-          borderRadius: '12px',
-          overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-        }}
-      >
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* Table Header */}
-        <div
-          style={{
-            background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
-            display: 'grid',
-            gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 0.8fr',
-            gap: '16px',
-            padding: '16px 24px',
-            color: 'white',
-            fontWeight: '600',
-            fontSize: '14px',
-            borderRadius: '12px 12px 0 0',
-          }}
-        >
+        <div className="grid grid-cols-[2fr_2.5fr_1.2fr_1fr_1fr_0.8fr] gap-4 px-6 py-4 bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white text-sm font-semibold">
           <div>Profile</div>
           <div>Email</div>
           <div>Subscription</div>
           <div>Usage Count</div>
           <div>Status</div>
-          <div>Action</div>
+          <div className="text-center">Action</div>
         </div>
 
         {/* Table Rows */}
-        {users.map((user, index) => (
-          <div
-            key={user.id}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 0.8fr',
-              gap: '16px',
-              padding: '16px 24px',
-              borderBottom: index !== users.length - 1 ? '1px solid #e5e7eb' : 'none',
-              alignItems: 'center',
-              background: index % 2 === 0 ? '#ffffff' : '#f9fafb',
-            }}
-          >
-            {/* Profile */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                }}
-              >
-                {user.name.charAt(0)}
+        {getCurrentPageUsers().length > 0 ? (
+          getCurrentPageUsers().map((user, index) => (
+            <div
+              key={user.id}
+              className={`grid grid-cols-[2fr_2.5fr_1.2fr_1fr_1fr_0.8fr] gap-4 px-6 py-4 items-center text-sm ${index < getCurrentPageUsers().length - 1 ? 'border-b border-gray-100' : ''
+                } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+            >
+              {/* Profile */}
+              <div className="flex items-center gap-3">
+                {user.profileImage ? (
+                  <img
+                    src={user.profileImage}
+                    alt={user.name}
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center font-semibold text-sm">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="font-medium text-gray-900">
+                  {user.name}
+                </span>
               </div>
-              <span style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>
-                {user.name}
-              </span>
-            </div>
 
-            {/* Email */}
-            <div style={{ fontSize: '14px', color: '#6b7280' }}>
-              {user.email}
-            </div>
+              {/* Email */}
+              <div className="text-gray-500 truncate">
+                {user.email}
+              </div>
 
-            {/* Subscription */}
-            <div
-              style={{
-                display: 'inline-block',
-                background: getSubscriptionBgColor(user.subscription),
-                color: getSubscriptionTextColor(user.subscription),
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '500',
-                border: `1px solid ${getSubscriptionTextColor(user.subscription)}20`,
-              }}
-            >
-              {user.subscription}
-            </div>
+              {/* Subscription */}
+              <div>
+                <span className={`inline-block px-3 py-1 rounded-md text-xs font-semibold ${user.subscription === 'Premium'
+                    ? 'bg-yellow-100 text-yellow-600'
+                    : 'bg-purple-100 text-purple-600'
+                  }`}>
+                  {user.subscription}
+                </span>
+              </div>
 
-            {/* Usage Count */}
-            <div style={{ fontSize: '14px', color: '#374151', fontWeight: '500' }}>
-              {user.usage}
-            </div>
+              {/* Usage Count */}
+              <div className="font-medium text-gray-900">
+                {user.usage}
+              </div>
 
-            {/* Status */}
-            <div
-              style={{
-                display: 'inline-block',
-                background: getStatusBgColor(user.status),
-                color: getStatusTextColor(user.status),
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '500',
-                border: `1px solid ${getStatusTextColor(user.status)}20`,
-              }}
-            >
-              {user.status}
-            </div>
+              {/* Status */}
+              <div>
+                <span className={`inline-block px-3 py-1 rounded-md text-xs font-semibold ${user.status === 'Active'
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-red-100 text-red-600'
+                  }`}>
+                  {user.status}
+                </span>
+              </div>
 
-            {/* Action */}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-start' }}>
-              <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#9ca3af',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '4px',
-                  transition: 'color 0.2s',
-                }}
-                onClick={() => handleViewUser(user)}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#6b7280')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
-              >
-                <Eye size={18} />
-              </button>
-              <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#ef4444',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '4px',
-                  transition: 'color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#ef4444')}
-              >
-                <Trash2 size={18} />
-              </button>
+              {/* Action */}
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  onClick={() => handleViewUser(user)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-purple-600 hover:bg-purple-100 transition-all"
+                  title="View Details"
+                >
+                  <Eye size={16} />
+                </button>
+                <button
+                  onClick={() => handleToggleStatus(user.id)}
+                  disabled={actionLoading && togglingUserId === user.id}
+                  className={`p-1.5 rounded-md transition-all ${user.status === 'Active'
+                      ? 'text-red-400 hover:text-red-600 hover:bg-red-100'
+                      : 'text-green-400 hover:text-green-600 hover:bg-green-100'
+                    } ${actionLoading && togglingUserId === user.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={user.status === 'Active' ? 'Deactivate User' : 'Activate User'}
+                >
+                  {actionLoading && togglingUserId === user.id ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  ) : (
+                    <Power size={16} />
+                  )}
+                </button>
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="px-6 py-12 text-center text-gray-500">
+            <p className="text-sm">No users found</p>
           </div>
-        ))}
+        )}
       </div>
 
-      {/* Modal Overlay */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between bg-white px-4 py-3 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
+            <span className="font-medium">
+              {Math.min(currentPage * pageSize, totalCount)}
+            </span>{' '}
+            of <span className="font-medium">{totalCount}</span> results
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-md border ${currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-purple-50 hover:border-purple-300'
+                } transition-colors`}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="px-4 py-1.5 bg-purple-50 text-purple-600 rounded-md font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-md border ${currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-purple-50 hover:border-purple-300'
+                } transition-colors`}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
       {showModal && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '16px',
-          }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={closeModal}
         >
-          {/* Modal Content */}
           <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '40px 32px',
-              maxWidth: '400px',
-              width: '100%',
-              boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-              position: 'relative',
-              textAlign: 'center',
-            }}
+            className="bg-white rounded-xl p-8 max-w-2xl w-full relative shadow-xl my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Loading State */}
+            {loadingDetails ? (
+              <div className="py-12 text-center">
+                <div className="w-12 h-12 rounded-full border-3 border-purple-200 border-t-purple-500 animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading user details...</p>
+              </div>
+            ) : userDetails && (
+              <>
+                {/* Close Button */}
+                <button
+                  onClick={closeModal}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+
+                {/* Status Badges */}
+                <div className="mb-6 flex justify-center gap-2 flex-wrap">
+                  <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-semibold ${userDetails.subscription === 'Premium'
+                      ? 'bg-yellow-100 text-yellow-600 border border-yellow-200'
+                      : 'bg-purple-100 text-purple-600 border border-purple-200'
+                    }`}>
+                    {userDetails.subscription}
+                  </span>
+                  {userDetails.isStaff && (
+                    <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 border border-blue-200">
+                      Staff
+                    </span>
+                  )}
+                  <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-semibold ${userDetails.isActive
+                      ? 'bg-green-100 text-green-600 border border-green-200'
+                      : 'bg-red-100 text-red-600 border border-red-200'
+                    }`}>
+                    {userDetails.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                {/* Profile Section */}
+                <div className="flex flex-col md:flex-row gap-8 mb-8">
+                  {/* Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="relative w-32 h-32 mx-auto">
+                      {userDetails.profileImage ? (
+                        <img
+                          src={userDetails.profileImage}
+                          alt={userDetails.name}
+                          className="w-full h-full rounded-full object-cover border-4 border-purple-100"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center text-4xl font-bold border-4 border-purple-100">
+                          {userDetails.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-3 border-white ${userDetails.isActive ? 'bg-green-500' : 'bg-gray-400'
+                        }`} />
+                    </div>
+                  </div>
+
+                  {/* Basic Info */}
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                      {userDetails.name}
+                    </h2>
+                    <p className="text-gray-500 mb-4">{userDetails.email}</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-purple-50 p-3 rounded-lg">
+                        <p className="text-xs text-purple-600 mb-1 font-medium">Usage Count</p>
+                        <p className="text-lg font-bold text-purple-700">{userDetails.usage}</p>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-xs text-blue-600 mb-1 font-medium">Status</p>
+                        <p className={`text-lg font-bold ${userDetails.isActive ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                          {userDetails.status}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Info Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="space-y-4">
+                    <div className="border-b border-gray-100 pb-3">
+                      <p className="text-xs text-gray-500 mb-1 font-medium">User ID</p>
+                      <p className="text-sm font-medium text-gray-900">{userDetails.id}</p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Date Joined</p>
+                      <p className="text-sm font-medium text-gray-900">{userDetails.dateJoined}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="border-b border-gray-100 pb-3">
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Last Login</p>
+                      <p className="text-sm font-medium text-gray-900">{userDetails.lastLogin}</p>
+                    </div>
+                    <div className="border-b border-gray-100 pb-3">
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Account Type</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {userDetails.isStaff ? 'Staff Account' : 'Regular User'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleToggleStatus(userDetails.id)}
+                    disabled={actionLoading}
+                    className={`py-3 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${userDetails.isActive
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                        : 'bg-green-50 text-green-600 hover:bg-green-100'
+                      } ${actionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {actionLoading && resettingUserId !== userDetails.id ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        {userDetails.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                        {userDetails.isActive ? 'Deactivate User' : 'Activate User'}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleResetPassword(userDetails.id, userDetails.email)}
+                    disabled={actionLoading}
+                    className={`py-3 px-4 bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 ${actionLoading && resettingUserId === userDetails.id ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                  >
+                    {actionLoading && resettingUserId === userDetails.id ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Key size={16} />
+                        Reset Password
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error Message Modal */}
+      {messageModal.show && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+          onClick={closeMessageModal}
+        >
+          <div
+            className="bg-white rounded-xl p-6 max-w-md w-full relative shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button
-              onClick={closeModal}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                fontSize: '28px',
-                cursor: 'pointer',
-                color: '#6b7280',
-                padding: '4px 8px',
-                lineHeight: '1',
-              }}
-              type="button"
+              onClick={closeMessageModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-full transition-colors"
             >
-              ×
+              <X size={18} />
             </button>
 
-            {/* Premium Badge */}
-            <div style={{ marginBottom: '16px' }}>
-              <span
-                style={{
-                  display: 'inline-block',
-                  background: '#fef3c7',
-                  color: '#92400e',
-                  padding: '6px 16px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  border: '1px solid #fcd34d',
-                }}
-              >
-                {selectedUser?.subscription}
-              </span>
+            {/* Icon */}
+            <div className="text-center mb-4">
+              {messageModal.type === 'success' ? (
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+              )}
             </div>
 
-            {/* Profile Avatar */}
-            <div
-              style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '40px',
-                fontWeight: 'bold',
-                margin: '0 auto 16px',
-                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                position: 'relative',
-              }}
-            >
-              {selectedUser?.name.charAt(0)}
-              <div
-                style={{
-                  position: 'absolute',
-                  width: '16px',
-                  height: '16px',
-                  background: '#10b981',
-                  border: '3px solid white',
-                  borderRadius: '50%',
-                  bottom: '0',
-                  right: '0',
-                }}
-              />
-            </div>
+            {/* Title */}
+            <h3 className={`text-xl font-bold text-center mb-2 ${messageModal.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}>
+              {messageModal.title}
+            </h3>
 
-            {/* Name */}
-            <h2
-              style={{
-                fontSize: '24px',
-                fontWeight: '700',
-                color: '#1f2937',
-                margin: '0 0 8px 0',
-              }}
-            >
-              {selectedUser?.name}
-            </h2>
-
-            {/* Email */}
-            <p
-              style={{
-                fontSize: '14px',
-                color: '#6b7280',
-                margin: '0 0 24px 0',
-              }}
-            >
-              {selectedUser?.email}
+            {/* Message */}
+            <p className="text-gray-600 text-center mb-4">
+              {messageModal.message}
             </p>
 
-            {/* Info Grid */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '16px',
-                marginBottom: '28px',
-                padding: '20px',
-                background: '#f9fafb',
-                borderRadius: '12px',
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    margin: '0 0 8px 0',
-                    fontWeight: '500',
-                  }}
-                >
-                  Join date
-                </p>
-                <p
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    color: '#1f2937',
-                    margin: 0,
-                  }}
-                >
-                  {selectedUser?.joinDate}
-                </p>
-              </div>
-              <div>
-                <p
-                  style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    margin: '0 0 8px 0',
-                    fontWeight: '500',
-                  }}
-                >
-                  Usage Count
-                </p>
-                <p
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    color: '#1f2937',
-                    margin: 0,
-                  }}
-                >
-                  {selectedUser?.usage}
-                </p>
-              </div>
-            </div>
+            {/* User Email (if available) */}
+            {messageModal.userEmail && (
+              <p className="text-sm text-gray-500 text-center mb-6 bg-gray-50 p-3 rounded-lg">
+                <span className="font-medium">Email:</span> {messageModal.userEmail}
+              </p>
+            )}
 
-            {/* Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                type="button"
-              >
-                Reset Password
-              </button>
-              <button
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: '#fecdd3',
-                  color: '#dc2626',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                type="button"
-              >
-                Delete Account
-              </button>
-            </div>
+            {/* OK Button */}
+            <button
+              onClick={closeMessageModal}
+              className={`w-full py-3 rounded-lg text-white font-semibold transition-colors ${messageModal.type === 'success'
+                  ? 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF] hover:opacity-90'
+                  : 'bg-red-600 hover:bg-red-700'
+                }`}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

@@ -1,280 +1,349 @@
-import React, { useState } from 'react';
-import { Trash2, Plus, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trash2, Plus, X, Edit2, RefreshCw } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const PersonasLimits = () => {
-  const [dailyFreeLimit, setDailyFreeLimit] = useState('10');
-  const [maxChatLength, setMaxChatLength] = useState('1000');
-  const [ocrLimit, setOcrLimit] = useState('5');
+  const { tokens } = useAuth();
+
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [error, setError] = useState(null);
+
+  // Personas states
+  const [personas, setPersonas] = useState([]);
+
+  // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState(null);
   const [newPersonaName, setNewPersonaName] = useState('');
   const [newPersonaDescription, setNewPersonaDescription] = useState('');
-  const [personas, setPersonas] = useState([
-    {
-      id: 1,
-      name: 'Professional',
-      description: 'Formal and business-appropriate persona',
-      enabled: false,
-    },
-    {
-      id: 2,
-      name: 'Casual',
-      description: 'Relaxed and conversational persona',
-      enabled: true,
-    },
-    {
-      id: 3,
-      name: 'Friendly',
-      description: 'Warm and approachable persona',
-      enabled: true,
-    },
-    {
-      id: 4,
-      name: 'Academic',
-      description: 'Scholarly and technical persona',
-      enabled: true,
-    },
-    {
-      id: 5,
-      name: 'Creative',
-      description: 'Imaginative and expressive persona',
-      enabled: true,
-    },
-    {
-      id: 6,
-      name: 'Concise',
-      description: 'Brief and to-the-point persona',
-      enabled: true,
-    },
-  ]);
+  const [personaActive, setPersonaActive] = useState(true);
 
-  const handleTogglePersona = (id) => {
-    setPersonas(
-      personas.map((persona) =>
-        persona.id === id ? { ...persona, enabled: !persona.enabled } : persona
-      )
-    );
+  // Message modal states
+  const [messageModal, setMessageModal] = useState({
+    show: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
+
+  // Fetch personas from API
+  const fetchPersonas = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/personas/`,
+        {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success && responseData.data) {
+        const formattedPersonas = responseData.data.results.map(persona => ({
+          id: persona.id,
+          name: persona.name,
+          description: persona.description,
+          isActive: persona.is_active,
+          createdAt: new Date(persona.created_at).toLocaleString(),
+          updatedAt: new Date(persona.updated_at).toLocaleString()
+        }));
+        setPersonas(formattedPersonas);
+      }
+    } catch (err) {
+      console.error('Error fetching personas:', err);
+      showMessageModal('error', 'Error', 'Failed to load personas');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeletePersona = (id) => {
-    setPersonas(personas.filter((persona) => persona.id !== id));
+  // Initial data fetch
+  useEffect(() => {
+    if (tokens?.access_token) {
+      fetchPersonas();
+    }
+  }, [tokens]);
+
+  // Show message modal
+  const showMessageModal = (type, title, message) => {
+    setMessageModal({
+      show: true,
+      type,
+      title,
+      message
+    });
   };
 
+  // Close message modal
+  const closeMessageModal = () => {
+    setMessageModal({
+      show: false,
+      type: 'success',
+      title: '',
+      message: ''
+    });
+  };
+
+  // Create new persona
+  const handleCreatePersona = async () => {
+    if (newPersonaName.trim() === '') {
+      showMessageModal('error', 'Validation Error', 'Please enter a persona name');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/personas/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: newPersonaName,
+            description: newPersonaDescription || 'Add your persona description here',
+            is_active: personaActive
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create persona');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        showMessageModal('success', 'Success', 'Persona created successfully');
+        await fetchPersonas(); // Refresh personas
+        handleCloseAddModal();
+      }
+    } catch (err) {
+      console.error('Error creating persona:', err);
+      showMessageModal('error', 'Error', err.message || 'Failed to create persona');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update persona
+  const handleUpdatePersona = async () => {
+    if (!selectedPersona) return;
+
+    if (newPersonaName.trim() === '') {
+      showMessageModal('error', 'Validation Error', 'Please enter a persona name');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/personas/${selectedPersona.id}/`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: newPersonaName,
+            description: newPersonaDescription,
+            is_active: personaActive
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update persona');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        showMessageModal('success', 'Success', 'Persona updated successfully');
+        await fetchPersonas(); // Refresh personas
+        handleCloseEditModal();
+      }
+    } catch (err) {
+      console.error('Error updating persona:', err);
+      showMessageModal('error', 'Error', err.message || 'Failed to update persona');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete persona
+  const handleDeletePersona = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this persona?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/personas/${id}/`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete persona');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        showMessageModal('success', 'Success', responseData.message || 'Persona deleted successfully');
+        await fetchPersonas(); // Refresh personas
+      }
+    } catch (err) {
+      console.error('Error deleting persona:', err);
+      showMessageModal('error', 'Error', err.message || 'Failed to delete persona');
+    }
+  };
+
+  // Toggle persona active status
+  const handleTogglePersona = async (persona) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/dashboard/personas/${persona.id}/`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            is_active: !persona.isActive
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle persona status');
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        await fetchPersonas(); // Refresh personas
+      }
+    } catch (err) {
+      console.error('Error toggling persona:', err);
+      showMessageModal('error', 'Error', err.message || 'Failed to toggle persona status');
+    }
+  };
+
+  // Open add modal
   const handleOpenAddModal = () => {
-    setShowAddModal(true);
     setNewPersonaName('');
     setNewPersonaDescription('');
+    setPersonaActive(true);
+    setShowAddModal(true);
   };
 
+  // Close add modal
   const handleCloseAddModal = () => {
     setShowAddModal(false);
     setNewPersonaName('');
     setNewPersonaDescription('');
+    setPersonaActive(true);
   };
 
-  const handleAddPersona = () => {
-    if (newPersonaName.trim() === '') {
-      alert('Please enter a persona name');
-      return;
-    }
-
-    const newPersona = {
-      id: Date.now(),
-      name: newPersonaName,
-      description: newPersonaDescription || 'Add your persona description here',
-      enabled: true,
-    };
-    setPersonas([...personas, newPersona]);
-    handleCloseAddModal();
+  // Open edit modal
+  const handleOpenEditModal = (persona) => {
+    setSelectedPersona(persona);
+    setNewPersonaName(persona.name);
+    setNewPersonaDescription(persona.description);
+    setPersonaActive(persona.isActive);
+    setShowEditModal(true);
   };
 
-  const handleSave = () => {
-    console.log({
-      dailyFreeLimit,
-      maxChatLength,
-      ocrLimit,
-      personas,
-    });
-    alert('Settings saved successfully!');
+  // Close edit modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setSelectedPersona(null);
+    setNewPersonaName('');
+    setNewPersonaDescription('');
+    setPersonaActive(true);
   };
 
-  return (
-    <div
-      style={{
-        background: '#f9fafb',
-        minHeight: '100vh',
-        padding: '32px 24px',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}
-    >
-      {/* Free Users Tier Limits Section */}
-      <div style={{ marginBottom: '48px' }}>
-        <h2
-          style={{
-            fontSize: '18px',
-            fontWeight: '700',
-            color: '#1f2937',
-            margin: '0 0 24px 0',
-          }}
-        >
-          Free users Tier Limits
-        </h2>
+  // Refresh all data
+  const handleRefresh = async () => {
+    setLoading(true);
+    await fetchPersonas();
+    setLoading(false);
+  };
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '20px',
-          }}
-        >
-          {/* Daily Free Limit */}
-          <div
-            style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '12px',
-              }}
-            >
-              Daily Free Limit
-            </label>
-            <input
-              type="number"
-              value={dailyFreeLimit}
-              onChange={(e) => setDailyFreeLimit(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                fontSize: '14px',
-                color: '#1f2937',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {/* Max Chat Length */}
-          <div
-            style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '12px',
-              }}
-            >
-              Max chat length
-            </label>
-            <input
-              type="number"
-              value={maxChatLength}
-              onChange={(e) => setMaxChatLength(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                fontSize: '14px',
-                color: '#1f2937',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {/* OCR Limit */}
-          <div
-            style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '12px',
-              }}
-            >
-              OCR Limit
-            </label>
-            <input
-              type="number"
-              value={ocrLimit}
-              onChange={(e) => setOcrLimit(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                fontSize: '14px',
-                color: '#1f2937',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
+  if (loading && personas.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-3 border-purple-200 border-t-purple-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading personas...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Personas & Limits Section */}
-      <div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '24px',
-          }}
+  return (
+    <div className="min-h-screen bg-gray-50 p-8 font-sans">
+      {/* Header with Refresh */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Personas</h1>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          <h2
-            style={{
-              fontSize: '18px',
-              fontWeight: '700',
-              color: '#1f2937',
-              margin: 0,
-            }}
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-100 text-red-600 px-4 py-3 rounded-xl mb-5 border border-red-500 flex justify-between items-center text-sm">
+          <span>Error: {error}</span>
+          <button
+            onClick={handleRefresh}
+            className="bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 text-sm font-medium"
           >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Personas Section */}
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-bold text-gray-900">
             Personas & Limits
           </h2>
           <button
             onClick={handleOpenAddModal}
-            style={{
-              background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-            type="button"
+            className="bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity"
           >
             <Plus size={18} />
             Add Persona
@@ -282,329 +351,310 @@ const PersonasLimits = () => {
         </div>
 
         {/* Personas Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '24px',
-            marginBottom: '32px',
-          }}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {personas.map((persona) => (
             <div
               key={persona.id}
-              style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '12px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
+              className="bg-white p-5 rounded-xl shadow-sm flex flex-col"
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '12px',
-                }}
-              >
+              <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      color: '#1f2937',
-                      margin: '0 0 4px 0',
-                    }}
-                  >
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">
                     {persona.name}
                   </h3>
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      color: '#6b7280',
-                      margin: 0,
-                    }}
-                  >
+                  <p className="text-xs text-gray-500 mb-2">
                     {persona.description}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Updated: {new Date(persona.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: 'auto',
-                  paddingTop: '12px',
-                }}
-              >
+              <div className="flex justify-between items-center mt-auto pt-3 border-t border-gray-100">
                 {/* Toggle Switch */}
                 <button
-                  onClick={() => handleTogglePersona(persona.id)}
-                  style={{
-                    width: '50px',
-                    height: '28px',
-                    background: persona.enabled
-                      ? 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)'
-                      : '#d1d5db',
-                    border: 'none',
-                    borderRadius: '14px',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'background 0.3s',
-                    padding: 0,
-                  }}
-                  type="button"
+                  onClick={() => handleTogglePersona(persona)}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${persona.isActive ? 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF]' : 'bg-gray-300'
+                    }`}
                 >
                   <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      background: 'white',
-                      borderRadius: '50%',
-                      position: 'absolute',
-                      top: '2px',
-                      left: persona.enabled ? '24px' : '2px',
-                      transition: 'left 0.3s',
-                    }}
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${persona.isActive ? 'left-7' : 'left-1'
+                      }`}
                   />
                 </button>
 
-                {/* Delete Button */}
-                <button
-                  onClick={() => handleDeletePersona(persona.id)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#ef4444',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '4px 8px',
-                    transition: 'color 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#ef4444')}
-                  type="button"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleOpenEditModal(persona)}
+                    className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-100 rounded-md transition-all"
+                    title="Edit Persona"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDeletePersona(persona.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-md transition-all"
+                    title="Delete Persona"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Save Button */}
-        <div style={{ textAlign: 'right' }}>
-          <button
-            onClick={handleSave}
-            style={{
-              background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
-              color: 'white',
-              border: 'none',
-              padding: '14px 40px',
-              borderRadius: '10px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-            type="button"
-          >
-            Save
-          </button>
-        </div>
+        {/* No Personas Message */}
+        {personas.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-xl">
+            <p className="text-gray-500">No personas found. Click "Add Persona" to create one.</p>
+          </div>
+        )}
       </div>
 
       {/* Add Persona Modal */}
       {showAddModal && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '16px',
-          }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           onClick={handleCloseAddModal}
         >
-          {/* Modal Content */}
           <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '32px',
-              maxWidth: '500px',
-              width: '100%',
-              boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-              position: 'relative',
-            }}
+            className="bg-white rounded-xl p-8 max-w-md w-full relative shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header with Close Button */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '24px',
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: '20px',
-                  fontWeight: '700',
-                  color: '#1f2937',
-                  margin: 0,
-                }}
-              >
-                Add Persona
-              </h2>
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Add New Persona</h2>
               <button
                 onClick={handleCloseAddModal}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '4px 8px',
-                  lineHeight: '1',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                type="button"
+                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
             {/* Persona Name Input */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  marginBottom: '8px',
-                }}
-              >
-                Persona name
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Persona Name *
               </label>
               <input
                 type="text"
                 placeholder="e.g., Customer Support"
                 value={newPersonaName}
                 onChange={(e) => setNewPersonaName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  color: '#1f2937',
-                  boxSizing: 'border-box',
-                  backgroundColor: '#f9fafb',
-                }}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
 
             {/* Description Input */}
-            <div style={{ marginBottom: '28px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  marginBottom: '8px',
-                }}
-              >
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Description
               </label>
               <textarea
                 placeholder="Describe the persona..."
                 value={newPersonaDescription}
                 onChange={(e) => setNewPersonaDescription(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  color: '#1f2937',
-                  boxSizing: 'border-box',
-                  backgroundColor: '#f9fafb',
-                  fontFamily: 'inherit',
-                  minHeight: '100px',
-                  resize: 'vertical',
-                }}
+                rows="3"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
               />
             </div>
 
+            {/* Active Status Toggle */}
+            <div className="mb-6">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={personaActive}
+                    onChange={(e) => setPersonaActive(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-12 h-6 rounded-full transition-colors ${personaActive ? 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF]' : 'bg-gray-300'
+                    }`}>
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${personaActive ? 'left-7' : 'left-1'
+                      }`} />
+                  </div>
+                </div>
+                <span className="text-sm text-gray-700">Active</span>
+              </label>
+            </div>
+
             {/* Buttons */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                justifyContent: 'flex-start',
-              }}
-            >
+            <div className="flex gap-3">
               <button
-                onClick={handleAddPersona}
-                style={{
-                  background: 'linear-gradient(90deg, #a21caf 0%, #e91e63 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 32px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'opacity 0.2s',
-                  minWidth: '120px',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                type="button"
+                onClick={handleCreatePersona}
+                disabled={saving}
+                className="flex-1 py-2.5 bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Save
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Persona'
+                )}
               </button>
               <button
                 onClick={handleCloseAddModal}
-                style={{
-                  background: '#f3f4f6',
-                  color: '#1f2937',
-                  border: 'none',
-                  padding: '12px 32px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  minWidth: '120px',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#e5e7eb')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#f3f4f6')}
-                type="button"
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Persona Modal */}
+      {showEditModal && selectedPersona && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseEditModal}
+        >
+          <div
+            className="bg-white rounded-xl p-8 max-w-md w-full relative shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Edit Persona</h2>
+              <button
+                onClick={handleCloseEditModal}
+                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Persona Name Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Persona Name *
+              </label>
+              <input
+                type="text"
+                value={newPersonaName}
+                onChange={(e) => setNewPersonaName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            {/* Description Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={newPersonaDescription}
+                onChange={(e) => setNewPersonaDescription(e.target.value)}
+                rows="3"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+            </div>
+
+            {/* Active Status Toggle */}
+            <div className="mb-6">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={personaActive}
+                    onChange={(e) => setPersonaActive(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-12 h-6 rounded-full transition-colors ${personaActive ? 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF]' : 'bg-gray-300'
+                    }`}>
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${personaActive ? 'left-7' : 'left-1'
+                      }`} />
+                  </div>
+                </div>
+                <span className="text-sm text-gray-700">Active</span>
+              </label>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleUpdatePersona}
+                disabled={saving}
+                className="flex-1 py-2.5 bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Persona'
+                )}
+              </button>
+              <button
+                onClick={handleCloseEditModal}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal */}
+      {messageModal.show && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+          onClick={closeMessageModal}
+        >
+          <div
+            className="bg-white rounded-xl p-6 max-w-sm w-full relative shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeMessageModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="text-center mb-4">
+              {messageModal.type === 'success' ? (
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            <h3 className={`text-lg font-bold text-center mb-2 ${messageModal.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}>
+              {messageModal.title}
+            </h3>
+
+            <p className="text-gray-600 text-center mb-6">
+              {messageModal.message}
+            </p>
+
+            <button
+              onClick={closeMessageModal}
+              className={`w-full py-2.5 rounded-lg text-white font-semibold transition-colors ${messageModal.type === 'success'
+                  ? 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF] hover:opacity-90'
+                  : 'bg-red-600 hover:bg-red-700'
+                }`}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

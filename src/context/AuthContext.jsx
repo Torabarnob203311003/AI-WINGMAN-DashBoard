@@ -22,13 +22,20 @@ export function AuthProvider({ children }) {
   })
 
   useEffect(() => {
-    if (user) localStorage.setItem('auth_user', JSON.stringify(user))
-    else localStorage.removeItem('auth_user')
+    if (user) {
+      localStorage.setItem('auth_user', JSON.stringify(user))
+    } else {
+      localStorage.removeItem('auth_user')
+    }
   }, [user])
 
+  // Fixed: Store the entire tokens object, not just access_token
   useEffect(() => {
-    if (tokens) localStorage.setItem('auth_tokens', JSON.stringify(tokens))
-    else localStorage.removeItem('auth_tokens')
+    if (tokens) {
+      localStorage.setItem('auth_tokens', JSON.stringify(tokens))
+    } else {
+      localStorage.removeItem('auth_tokens')
+    }
   }, [tokens])
 
   const signin = (data) => {
@@ -67,6 +74,7 @@ export function AuthProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext)
 }

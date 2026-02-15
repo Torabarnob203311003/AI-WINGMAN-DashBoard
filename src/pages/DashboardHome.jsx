@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Trash2, ChevronDown, RefreshCw } from 'lucide-react';
+import {
+  FiUsers, FiActivity, FiTrendingUp, FiRefreshCw,
+  FiChevronDown, FiCalendar, FiEye, FiTrash2
+} from 'react-icons/fi';
+import { FaCrown } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 const Dashboard = () => {
   const [timeFilter, setTimeFilter] = useState('Monthly');
-  const [apiUrl] = useState('http://localhost:8000/dashboard/analytics/');
+  const [apiUrl] = useState(`${import.meta.env.VITE_API_BASE_URL}/dashboard/analytics/`);
+  const { tokens } = useAuth();
   const [apiData, setApiData] = useState({
     totalUsers: 0,
     activeToday: 0,
@@ -17,472 +28,413 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
 
+  // Stats cards configuration - using real API data
+  const stats = [
+    {
+      label: 'Total Users',
+      value: apiData.totalUsers.toLocaleString(),
+      icon: FiUsers,
+      iconColor: 'text-purple-500',
+      iconBg: 'bg-purple-100',
+    },
+    {
+      label: 'Active Today',
+      value: apiData.activeToday.toLocaleString(),
+      icon: FiActivity,
+      iconColor: 'text-green-500',
+      iconBg: 'bg-green-100',
+    },
+    {
+      label: 'Premium Users',
+      value: apiData.premiumUsers.toLocaleString(),
+      icon: FaCrown,
+      iconColor: 'text-pink-500',
+      iconBg: 'bg-pink-100',
+    },
+    {
+      label: 'Conversion Rate',
+      value: `${apiData.conversionRate.toFixed(1)}%`,
+      icon: FiTrendingUp,
+      iconColor: 'text-yellow-500',
+      iconBg: 'bg-yellow-100',
+    },
+  ];
+
+  // Chart data - using only real API data
+  const chartData = apiData.chartData.length > 0 ? apiData.chartData : [];
+
+  const totalUsers = apiData.totalUsers || 0;
+  const freeUsers = apiData.freeUsers || 0;
+  const premiumUsers = apiData.premiumUsers || 0;
+
+  // Pie data with real values
+  const pieData = [
+    { name: 'Free', value: freeUsers },
+    { name: 'Premium', value: premiumUsers },
+  ];
+
+  const users = apiData.users.length > 0 ? apiData.users : [];
+
+  const freePercentage = totalUsers > 0 ? Math.round((freeUsers / totalUsers) * 100) : 0;
+
   // Fetch data function
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 Fetching from:', apiUrl);
-      
+
       const response = await fetch(apiUrl, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "ngrok-skip-browser-warning": "true",
+          "Authorization": `Bearer ${tokens?.access_token}`,
+          "Content-Type": "application/json",
         },
       });
-      
-      console.log('📡 Response Status:', response.status);
-      
+
       if (!response.ok) {
-        throw new Error(`API returned status ${response.status} - ${response.statusText}`);
+        throw new Error(`API returned status ${response.status}`);
       }
-      
+
       const response_data = await response.json();
-      console.log('✅ Full API Response:', response_data);
-      
-      // Extract data from nested structure
-      const apiPayload = response_data.data || response_data;
-      console.log('📊 Extracted Payload:', apiPayload);
-      
-      // Safe chart data mapping
-      let chartData = [];
-      if (apiPayload.graph_data && Array.isArray(apiPayload.graph_data)) {
-        chartData = apiPayload.graph_data.map(item => ({
-          month: item.month || 'N/A',
-          value: parseInt(item.count || item.value || 0) || 0
-        }));
+
+      // Handle the nested data structure
+      if (response_data.success && response_data.data) {
+        const apiPayload = response_data.data;
+
+        let chartData = [];
+        if (apiPayload.graph_data && Array.isArray(apiPayload.graph_data)) {
+          chartData = apiPayload.graph_data.map(item => ({
+            month: item.month || 'N/A',
+            count: parseInt(item.count || 0) || 0
+          }));
+        }
+
+        setApiData({
+          totalUsers: parseInt(apiPayload.total_users || 0) || 0,
+          activeToday: parseInt(apiPayload.active_today || 0) || 0,
+          premiumUsers: parseInt(apiPayload.premium_users || 0) || 0,
+          conversionRate: parseFloat(apiPayload.conversion_rate || 0) || 0,
+          freeUsers: parseInt(apiPayload.free_users || 0) || 0,
+          chartData: chartData,
+          users: Array.isArray(apiPayload.users) ? apiPayload.users : [],
+        });
+        setLastFetch(new Date().toLocaleTimeString());
+      } else {
+        throw new Error('Invalid API response format');
       }
-      
-      console.log('📈 Processed Chart Data:', chartData);
-      
-      // Safe data assignment
-      const totalUsersValue = parseInt(apiPayload.total_users || 0) || 0;
-      const freeUsersValue = parseInt(apiPayload.free_users || 0) || 0;
-      
-      const newData = {
-        totalUsers: totalUsersValue,
-        activeToday: parseInt(apiPayload.active_today || 0) || 0,
-        premiumUsers: parseInt(apiPayload.premium_users || 0) || 0,
-        conversionRate: parseFloat(apiPayload.conversion_rate || 0) || 0,
-        freeUsers: freeUsersValue,
-        chartData: chartData,
-        users: Array.isArray(apiPayload.users) ? apiPayload.users : [],
-      };
-      
-      console.log('💾 Setting API Data:', newData);
-      setApiData(newData);
-      setLastFetch(new Date().toLocaleTimeString());
-      
+
     } catch (err) {
-      console.error('❌ Error fetching analytics:', err);
+      console.error('Error fetching analytics:', err);
       setError(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-fetch on component mount
   useEffect(() => {
     fetchAnalytics();
-    
-    // Optionally refresh every 30 seconds for real-time updates
     const interval = setInterval(fetchAnalytics, 30000);
-    
     return () => clearInterval(interval);
   }, []);
 
-  const stats = [
-    { label: 'Total Users', value: apiData.totalUsers, change: '+12.5%', icon: '👤' },
-    { label: 'Active Today', value: apiData.activeToday, change: '+12.5%', icon: '🟢' },
-    { label: 'Premium Users', value: apiData.premiumUsers, change: '+12.5%', icon: '💎' },
-    { label: 'Conversion Rate', value: `${apiData.conversionRate}%`, change: '+12.5%', icon: '⭐' },
-  ];
+  // Custom tooltip for bar chart
+  const CustomBarTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white px-3 py-2 rounded-md shadow-lg border border-gray-200">
+          <p className="text-xs font-semibold text-gray-900 m-0">
+            {payload[0].value.toLocaleString()}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
-  const chartData = (apiData.chartData && apiData.chartData.length > 0) ? apiData.chartData : [];
-  const maxValue = chartData.length > 0 ? Math.max(...chartData.map((d) => d.value || 0)) : 1;
-  const users = (apiData.users && apiData.users.length > 0) ? apiData.users : [];
-
-  const premiumCount = apiData.totalUsers - apiData.freeUsers;
-  const piePercentage = apiData.totalUsers > 0 
-    ? Math.round((premiumCount / apiData.totalUsers) * 100) 
-    : 0;
-
-  if (loading && !apiData.totalUsers) {
+  if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        backgroundColor: '#f9fafb',
-      }}>
-        <div style={{ fontSize: '24px', color: '#666', marginBottom: '12px' }}>📊 Loading Dashboard...</div>
-        <div style={{ fontSize: '12px', color: '#999' }}>Connecting to API: {apiUrl}</div>
+      <div className="min-h-screen flex items-center justify-center ">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-3 border-purple-200 border-t-purple-500 animate-spin mx-auto mb-4" />
+          <p className="text-white m-0">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      padding: '24px',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      backgroundColor: '#f9fafb',
-    }}>
-      {/* Header with Refresh */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ color: 'Black', fontSize: '32px', fontWeight: 'bold', margin: 0 }}>
-            Dashboard
-          </h1>
+    <div className="min-h-screen px-8 py-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-black text-2xl font-semibold m-0">
+          Dashboard
+        </h1>
+
+        <div className="flex items-center gap-3">
           {lastFetch && (
-            <p style={{ color: '#999', fontSize: '12px', margin: '8px 0 0 0' }}>
+            <span className="text-black text-sm flex items-center gap-1">
+              <FiCalendar size={13} />
               Last updated: {lastFetch}
-            </p>
+            </span>
           )}
+          <button
+            onClick={fetchAnalytics}
+            disabled={loading}
+            className="bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FiRefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
-        <button
-          onClick={fetchAnalytics}
-          disabled={loading}
-          style={{
-            background: '#a21caf',
-            color: 'white',
-            border: 'none',
-            padding: '10px 16px',
-            borderRadius: '6px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          <RefreshCw size={16} /> {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div style={{
-          background: '#fee2e2',
-          color: '#991b1b',
-          padding: '16px',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          border: '1px solid #fca5a5',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div>
-            <p style={{ margin: 0, fontWeight: 'bold', marginBottom: '4px' }}>❌ Connection Error</p>
-            <p style={{ margin: 0, fontSize: '12px' }}>{error}</p>
-            <p style={{ margin: '8px 0 0 0', fontSize: '11px', opacity: 0.8 }}>
-              Make sure your Django server is running at: {apiUrl}
-            </p>
-          </div>
+        <div className="bg-red-100 text-red-600 px-4 py-3.5 rounded-xl mb-5 border border-red-500 flex justify-between items-center text-sm">
+          <span>{error}</span>
           <button
             onClick={fetchAnalytics}
-            style={{
-              background: '#991b1b',
-              color: 'white',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              whiteSpace: 'nowrap',
-            }}
+            className="bg-red-600 text-white border-none px-3.5 py-1.5 rounded-md cursor-pointer text-sm font-medium hover:bg-red-700"
           >
-            Retry
+            Try Again
           </button>
         </div>
       )}
 
-      {/* Top Stats Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '24px',
-        marginBottom: '32px',
-      }}>
-        {stats.map((stat, idx) => (
-          <div key={idx} style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ color: '#999', margin: '0 0 8px 0', fontSize: '14px' }}>
-                  {stat.label}
-                </p>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '28px', fontWeight: 'bold', color: '#000' }}>
-                  {stat.value}
-                </h3>
-                <p style={{ color: '#22c55e', margin: 0, fontSize: '12px', fontWeight: '500' }}>
-                  {stat.change}
-                </p>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {stats.map((stat, idx) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={idx}
+              className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className={`w-10 h-10 rounded-lg ${stat.iconBg} flex items-center justify-center`}>
+                  <Icon size={20} className={stat.iconColor} />
+                </div>
               </div>
-              <div style={{ fontSize: '32px' }}>{stat.icon}</div>
+              <p className="text-xs text-gray-500 mb-1.5 font-medium">
+                {stat.label}
+              </p>
+              <h3 className="text-[28px] font-bold text-gray-900 m-0">
+                {stat.value}
+              </h3>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Main Content Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '24px',
-        marginBottom: '32px',
-      }}>
-        {/* Chart Section */}
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      {/* Charts Row */}
+      <div className="grid grid-cols-[1.5fr_1fr] gap-4 mb-6">
+        {/* Users Overview - Bar Chart */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-center mb-5">
             <div>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold' }}>
+              <h3 className="text-base font-semibold text-gray-900 mb-1.5">
                 Users Overview
               </h3>
-              <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#000' }}>
-                {apiData.totalUsers} <span style={{ color: '#22c55e', fontSize: '14px', fontWeight: '500' }}>users</span>
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-gray-900">
+                  {totalUsers.toLocaleString()}
+                </span>
+                {totalUsers > 0 && (
+                  <span className="text-sm text-green-600 font-medium">
+                    +12.5%
+                  </span>
+                )}
+              </div>
             </div>
-            <button style={{
-              background: '#a21caf',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }} onClick={() => setTimeFilter(timeFilter === 'Monthly' ? 'Weekly' : 'Monthly')}>
-              {timeFilter} <ChevronDown size={16} />
+            <button
+              onClick={() => setTimeFilter(timeFilter === 'Monthly' ? 'Weekly' : 'Monthly')}
+              className="bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white border-none px-4 py-2 rounded-lg text-sm font-medium cursor-pointer flex items-center gap-1.5 transition-colors"
+            >
+              {timeFilter}
+              <FiChevronDown size={14} />
             </button>
           </div>
 
-          {/* Bar Chart */}
           {chartData.length > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '200px', gap: '8px' }}>
-              {chartData.map((data, idx) => (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: '40px' }}>
-                  <div style={{
-                    background: idx === chartData.length - 1 ? '#a21caf' : '#e5e7eb',
-                    width: '100%',
-                    height: `${Math.max((data.value / maxValue) * 150, 10)}px`,
-                    borderRadius: '4px',
-                    transition: 'background 0.3s',
-                    cursor: 'pointer',
-                  }} title={`${data.month}: ${data.value} users`}/>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#666', textAlign: 'center', wordBreak: 'break-word' }}>
-                    {data.month}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#6A026A', fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#6A026A', fontSize: 11 }}
+                />
+                <Tooltip content={<CustomBarTooltip />} cursor={{ fill: '#f3e8ff', opacity: 0.3 }} />
+                <Bar
+                  dataKey="count"
+                  fill="#6A026A"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-              📊 No chart data available
+            <div className="h-[240px] flex items-center justify-center text-gray-400">
+              No chart data available
             </div>
           )}
         </div>
 
-        {/* Pie Chart Section */}
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 'bold', width: '100%' }}>
-            User Types
-          </h3>
-          <p style={{ margin: '0 0 16px 0', fontSize: '24px', fontWeight: 'bold', color: '#000' }}>
-            {apiData.totalUsers} <span style={{ color: '#22c55e', fontSize: '12px', fontWeight: '500' }}>total</span>
-          </p>
-
-          {/* Donut Chart */}
-          <svg viewBox="0 0 100 100" style={{ width: '150px', height: '150px', margin: '16px 0' }}>
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              fill="none"
-              stroke="#a21caf"
-              strokeWidth="12"
-              strokeDasharray={`${apiData.totalUsers > 0 ? (apiData.freeUsers / apiData.totalUsers) * 282.7 : 0} 282.7`}
-              strokeLinecap="round"
-            />
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              fill="none"
-              stroke="#d4af37"
-              strokeWidth="12"
-              strokeDasharray={`${apiData.totalUsers > 0 ? (premiumCount / apiData.totalUsers) * 282.7 : 0} 282.7`}
-              strokeDashoffset={apiData.totalUsers > 0 ? -((apiData.freeUsers / apiData.totalUsers) * 282.7) : 0}
-              strokeLinecap="round"
-            />
-            <text x="50" y="55" textAnchor="middle" fontSize="18" fontWeight="bold" fill="#333">
-              {piePercentage}%
-            </text>
-          </svg>
-
-          {/* Legend */}
-          <div style={{ width: '100%', marginTop: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <div style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '2px',
-                background: '#a21caf',
-              }} />
-              <span style={{ fontSize: '12px', color: '#666' }}>Free: {apiData.freeUsers}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '2px',
-                background: '#d4af37',
-              }} />
-              <span style={{ fontSize: '12px', color: '#666' }}>Premium: {premiumCount}</span>
-            </div>
+        {/* User Distribution - Donut Chart with Gradient */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-base font-semibold text-gray-900 m-0">
+              User Distribution
+            </h3>
           </div>
+
+          {totalUsers > 0 ? (
+            <>
+              <div className="relative mb-5">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <defs>
+                      <linearGradient id="freeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#6A026A" />
+                        <stop offset="100%" stopColor="#FF00FF" />
+                      </linearGradient>
+                    </defs>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      dataKey="value"
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={index === 0 ? 'url(#freeGradient)' : '#eab308'}
+                        />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+                  <h2 className="text-4xl font-bold text-gray-900 m-0">
+                    {freePercentage}%
+                  </h2>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-gradient-to-r from-[#6A026A] to-[#FF00FF]" />
+                    <span className="text-sm text-gray-500 font-medium">
+                      Free Users
+                    </span>
+                  </div>
+                  <span className="text-[15px] font-semibold text-gray-900">
+                    {freeUsers.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-yellow-500" />
+                    <span className="text-sm text-gray-500 font-medium">
+                      Premium Users
+                    </span>
+                  </div>
+                  <span className="text-[15px] font-semibold text-gray-900">
+                    {premiumUsers.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="h-[180px] flex items-center justify-center text-gray-400">
+              No user data available
+            </div>
+          )}
         </div>
       </div>
 
       {/* Users Table */}
-      {users.length > 0 ? (
-        <div style={{
-          background: 'white',
-          borderRadius: '12px',
-          overflow: 'hidden',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        }}>
-          <div style={{
-            background: '#a21caf',
-            display: 'grid',
-            gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
-            gap: '16px',
-            padding: '16px 24px',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '14px',
-          }}>
-            <div>Profile</div>
-            <div>Email</div>
-            <div>Subscription</div>
-            <div>Usage Count</div>
-            <div>Status</div>
-            <div>Action</div>
-          </div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Table Header - Purple gradient background */}
+        <div className="grid grid-cols-[2fr_2.5fr_1.3fr_1.2fr_1fr_0.8fr] px-6 py-4 bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white text-sm font-semibold">
+          <div>Profile</div>
+          <div>Email</div>
+          <div>Subscription</div>
+          <div>Usage Count</div>
+          <div>Status</div>
+          <div className="text-center">Action</div>
+        </div>
 
-          {users.map((user) => (
-            <div key={user.id} style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
-              gap: '16px',
-              padding: '16px 24px',
-              borderBottom: '1px solid #e5e7eb',
-              alignItems: 'center',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold',
-                }}>
-                  {user.name?.charAt(0) || 'U'}
+        {/* Table Rows */}
+        {users.length > 0 ? (
+          users.map((user, index) => (
+            <div
+              key={index}
+              className={`grid grid-cols-[2fr_2.5fr_1.3fr_1.2fr_1fr_0.8fr] px-6 py-4 items-center text-sm ${index < users.length - 1 ? 'border-b border-gray-200' : ''
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center font-semibold text-sm">
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                <span style={{ fontWeight: '500' }}>{user.name || 'N/A'}</span>
+                <span className="text-gray-900 font-medium">
+                  {user.name || 'User'}
+                </span>
               </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>{user.email || 'N/A'}</div>
-              <div style={{
-                display: 'inline-block',
-                background: '#fef3c7',
-                color: '#92400e',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                fontWeight: '500',
-              }}>
-                {user.subscription || 'N/A'}
+
+              <div className="text-gray-500">
+                {user.email || 'N/A'}
               </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>{user.usage || 0}</div>
-              <div style={{
-                display: 'inline-block',
-                background: '#d1fae5',
-                color: '#047857',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                fontWeight: '500',
-              }}>
-                {user.status || 'N/A'}
+
+              <div>
+                <span className={`${user.subscription === 'Premium'
+                  ? 'bg-yellow-100 text-yellow-600'
+                  : 'bg-gradient-to-r from-[#6A026A] to-[#FF00FF] text-white'
+                  } px-3 py-1 rounded-md text-xs font-semibold inline-block`}>
+                  {user.subscription || 'Free'}
+                </span>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#666',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}>
-                  <Eye size={18} />
+
+              <div className="text-gray-900 font-medium">
+                {user.usage || 0}
+              </div>
+
+              <div>
+                <span className="bg-green-100 text-green-600 px-3 py-1 rounded-md text-xs font-semibold inline-block">
+                  {user.status || 'Active'}
+                </span>
+              </div>
+
+              <div className="flex gap-2 justify-center items-center">
+                <button className="bg-transparent border-none cursor-pointer text-gray-400 p-1.5 rounded-md flex items-center justify-center transition-all hover:bg-purple-100 hover:text-purple-600">
+                  <FiEye size={16} />
                 </button>
-                <button style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#ef4444',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}>
-                  <Trash2 size={18} />
+                <button className="bg-transparent border-none cursor-pointer text-gray-400 p-1.5 rounded-md flex items-center justify-center transition-all hover:bg-red-100 hover:text-red-600">
+                  <FiTrash2 size={16} />
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '12px',
-          textAlign: 'center',
-          color: '#999',
-        }}>
-          👥 No user data available
-        </div>
-      )}
+          ))
+        ) : (
+          <div className="px-6 py-12 text-center text-gray-500">
+            <p className="m-0 text-sm">No users found</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

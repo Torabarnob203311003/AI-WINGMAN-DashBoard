@@ -21,7 +21,7 @@ export default function Header() {
   return (
     <header className="px-6 py-4 bg-white border-b border-gray-200 flex items-center rounded-none justify-between flex-shrink-0">
       {/* Search Bar */}
-      <div className="flex-1 max-w-xs">
+      <div className="flex-1 hidden max-w-xs">
         <div className="relative ">
           <BsSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 w-5 h-5" />
           <input
