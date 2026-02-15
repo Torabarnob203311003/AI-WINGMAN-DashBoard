@@ -86,7 +86,7 @@ const Users = () => {
             day: '2-digit',
             year: 'numeric'
           }),
-          profileImage: user.profile_image_url,
+          profileImage: user.profile_image,
           isStaff: user.is_staff,
           lastLogin: user.last_login,
         }));
@@ -196,7 +196,7 @@ const Users = () => {
             day: '2-digit',
             year: 'numeric'
           }),
-          profileImage: user.profile_image_url,
+          profileImage: user.profile_image,
           isStaff: user.is_staff,
           lastLogin: user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
           dateJoined: new Date(user.date_joined).toLocaleString(),
@@ -246,7 +246,7 @@ const Users = () => {
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/dashboard/users/${userId}/toggle_status/`,
         {
-          method: 'POST',
+          method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${tokens?.access_token}`,
             'Content-Type': 'application/json',
