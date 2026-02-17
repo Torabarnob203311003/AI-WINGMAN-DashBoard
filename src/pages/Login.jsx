@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import apiClient from '../utils/apiClient'
 import Logo from '../assets/Logo.svg'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +27,7 @@ export default function Login() {
       if (!email || !password) {
         throw new Error('Please enter email and password')
       }
-      
+
       // Call the login API using apiClient
       const response = await apiClient.post('/auth/login/', {
         email: email,
@@ -62,7 +64,7 @@ export default function Login() {
         console.log('✅ Access Token exists:', !!parsed.access_token);
         console.log('✅ Refresh Token exists:', !!parsed.refresh_token);
       }
-      
+
       // Navigate to dashboard after 2 seconds
       setTimeout(() => {
         navigate('/dashboard')
@@ -111,10 +113,10 @@ export default function Login() {
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full mx-4 modal-success">
             <div className="flex items-center justify-center mb-4">
               <div className="bg-green-100 rounded-full p-4">
-                <svg 
-                  className="w-12 h-12 text-green-600 checkmark-icon" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-12 h-12 text-green-600 checkmark-icon"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                   strokeWidth={3}
                   strokeDasharray="50"
@@ -175,105 +177,113 @@ export default function Login() {
 
       <div className="w-full max-w-md">
         {/* Logo and Title */}
-        <div className="flex ps-4  items-center justify-center gap-3 mb-8">
+        <div className="flex ps-4 items-center justify-center gap-3 mb-8">
           <img src={Logo} alt="AI Wingman Logo" className="w-42 h-42" />
-          {/* <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">AI Wingman</h1> */}
         </div>
 
-       <div className='bg-white p-12 rounded-2xl '>
+        <div className='bg-white p-12 rounded-2xl'>
+          {/* Heading */}
+          <h2 className="text-center text-xl sm:text-3xl font-bold text-gray-900 mb-8">
+            Sign in Your Account
+          </h2>
 
-             {/* Heading */}
-        <h2 className="text-center text-xl sm:text-3xl font-bold text-gray-900 mb-8">
-          Sign in Your Account
-        </h2>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black">
+                  ✉️
+                </span>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email Address"
+                  required
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
-              Email Address
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black">
-                ✉️
-              </span>
+            {/* Password with Show/Hide */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-bold text-black mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  🔒
+                </span>
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  required
+                  disabled={loading}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  disabled={loading}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} className="text-gray-500" />
+                  ) : (
+                    <Eye size={20} className="text-gray-500" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {/* Remember Me */}
+            <label className="flex items-center gap-3">
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                required
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer disabled:cursor-not-allowed"
               />
-            </div>
-          </div>
-
-          {/* Password */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-bold
-             text-black mb-2">
-              Password
+              <span className="text-sm font-bold text-black">Remember me</span>
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                🔒
-              </span>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-                disabled={loading}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition text-gray-900 placeholder-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-            </div>
-          </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {/* Remember Me */}
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
+            {/* Sign In Button */}
+            <button
+              type="submit"
               disabled={loading}
-              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <span className="text-sm font-bold text-black">Remember me</span>
-          </label>
+              style={{ background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }}
+              className="w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-center"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
 
-          {/* Sign In Button */}
-        <button
-  type="submit"
-  disabled={loading}
-  style={{ background: 'linear-gradient(90deg, #6A026A 0%, #FF00FF 129%)' }}
-  className="w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-center"
->
-  {loading ? 'Signing in...' : 'Sign in'}
-</button>
-        </form>
-
-        {/* Forgot Password */}
-        <div className="mt-6 text-center">
-          <a
-            href="/forgot"
-            className="text-l font-semibold text-black hover:text-purple-600 transition"
-          >
-            Forgot the password?
-          </a>
-
-       </div>
+          {/* Forgot Password */}
+          <div className="mt-6 text-center">
+            <a
+              href="/forgot"
+              className="text-l font-semibold text-black hover:text-purple-600 transition"
+            >
+              Forgot the password?
+            </a>
+          </div>
         </div>
       </div>
     </div>
